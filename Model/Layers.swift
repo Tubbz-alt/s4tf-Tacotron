@@ -42,7 +42,10 @@ struct Bidirectional: Layer {
 				return forward.concatenated(with: backward, alongAxis: 1)
 		}
 	}
-
+	/// Parameters:
+	///		- inputs: [Tensor<Float>], each of shape (batch, inputDims)
+	///	Returns:
+	///		- timeStepOutputs: [Tensor<Float>], each of shape (batch, 2 * inputDims)
 	@differentiable
 	public func callAsFunction(_ inputs: [Tensor<Float>]) -> [LSTMCell<Float>.TimeStepOutput] {
 		precondition(!inputs.isEmpty, "'inputs' must be non-empty.")

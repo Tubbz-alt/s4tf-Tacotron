@@ -29,7 +29,8 @@ struct HighwayNet: Layer {
 			Dense<Float>(inputSize: layerSize, outputSize: layerSize, activation: relu),
 			count: numLayers)
 	}
-
+	/// Parameters:
+	///		- input: Tensor<Float>, shape: (batch, seqLen, inChannels)
 	@differentiable
 	public func callAsFunction(_ inputs: Tensor<Float>) -> Tensor<Float> {
 		var out = Hs[0](inputs) * Ts[0](inputs) + inputs * (1 - Ts[0](inputs))
@@ -57,10 +58,11 @@ struct PreNet: Layer {
 			dropOuts.append(Dropout(probability: drops[i]))
 		}
 	}
-
+	/// Parameters:
+	///		- input: Tensor<Float>, shape: (batch, seqLen, embeddingDims)
 	@differentiable
-	public func callAsFunction(_ input: Tensor<Float>) -> Tensor<Float> {
-		var out = dropOuts[0](denses[0](input))
+	public func callAsFunction(_ inputs: Tensor<Float>) -> Tensor<Float> {
+		var out = dropOuts[0](denses[0](inputs))
 		for i in 1 ..< withoutDerivative(at: denses.count){
 			out = dropOuts[i](denses[i](out))
 		}
@@ -73,13 +75,66 @@ struct CBHG: Layer {
 	/// Number of sets of 1-D convolutional filters
 	@noDerivative
 	let K: Int
-	var convLayers: [Conv1D<Float>]
+	var convLayers: [Conv1D<Float>] = []
 	var maxPool: MaxPool1D<Float>
-	var projLayers: [Conv1D<Float>]
+	var projLayers: [Conv1D<Float>] = []
 	var highway: HighwayNet
 	var bidirectional: Bidirectional
 	/// Creates a CBHG module 
-	public init () {
+	public init(
+		bankSize: Int,
+		inChannels: Int,
+		convLayersOutChannels: Int,
+		maxPoolWidth: Int = 2,
+		maxPoolStride: Int = 1,
+		projWidth: Int = 3,
+		projOutChannels: [Int],
+		numHighwayLayers: Int = 4
+	) {
+		precondition(K > 0, "Invalid bank size.")
+		K = bankSize
+		var inDims = inChannels
+		for k in 1 ... K {
+			convLayers.append(Conv1D<Float>(
+				filterShape: (k,
+					inDims,
+					convLayersOutChannels),
+				activation: relu,
+				padding: .same)
+			)
+			inDims = convLayersOutChannels
+		}
+		maxPool = MaxPool1D<Float>(
+			poolSize: maxPoolWidth,
+			stride: maxPoolStride,
+			padding = .same
+		)
+		projLayers.append(Conv1D<Float>(
+					filterShape: (projWidth,
+						inDims,
+						projOutChannels[0]),
+					activation: relu,
+					padding = .same)
+		)
+		projLayers.append(Conv1D<Float>(
+					filterShape: (projWidth,
+						projOutChannels[0],
+						projOutChannels[1]),
+					activation: identity,
+					padding = .same)
+		)
+		inDims = projOutChannels[1]
+		highway = HighwayNet(layerSize: inDims, numLayers: numHighwayLayers)
+		bidirectional = Bidirectional(
+			LSTMCell<Float>(inputSize: inDims, hiddenSize: inDims))
+	}
+
+	@differentiable
+	/// Parameters:
+	///		- inputs: Tensor<Float>, shape: (batch, seqLen, inputChannels)
+	///	Returns:
+	///		- outputs: Tensor<Float>, shape: (batch, seqLen, 2 * inputChannels)
+	public func callAsFunction(_ inputs: Tensor<Float>){
 		
 	}
 	
