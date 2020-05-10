@@ -15,7 +15,7 @@
 import TensorFlow
 
 /// A Bidirectional LSTM Layer with configurable merge function.
-struct Bidirectional: Layer {
+public struct Bidirectional: Layer {
   public var forward, backward: RecurrentLayer<LSTMCell<Float>>
   @noDerivative
   var mergeMode: String
@@ -45,9 +45,10 @@ struct Bidirectional: Layer {
 	/// Parameters:
 	///		- inputs: [Tensor<Float>], each of shape (batch, inputDims)
 	///	Returns:
-	///		- timeStepOutputs: [Tensor<Float>], each of shape (batch, 2 * inputDims)
+	///		- timeStepOutputs: [Tensor<Float>], each of shape (batch, inputDims)
+	///		or (batch, 2 * inputDims) if mergeMode == "cat"
 	@differentiable
-	public func callAsFunction(_ inputs: [Tensor<Float>]) -> [LSTMCell<Float>.TimeStepOutput] {
+	public func callAsFunction(_ inputs: [Tensor<Float>]) -> [Tensor<Float>] {
 		precondition(!inputs.isEmpty, "'inputs' must be non-empty.")
 		let lastIdx = withoutDerivative(at: inputs.count - 1)
 
@@ -57,7 +58,7 @@ struct Bidirectional: Layer {
 		var backwardState = withoutDerivative(at:
 		  backward.cell.zeroState(for: inputs[lastIdx]))
 		
-		var timeStepOutputs: [LSTMCell<Float>.TimeStepOutput] = []
+		var timeStepOutputs: [Tensor<Float>] = []
 	
 		for i in 0 ... withoutDerivative(at: lastIdx) {
 		  var forwardOutput = forward.cell(input: inputs[i],
@@ -69,19 +70,8 @@ struct Bidirectional: Layer {
 		  forwardOutput.state.hidden = merge(
 		  	forward: forwardOutput.state.hidden,
 		  	backward: backwardOutput.state.hidden)
-  		timeStepOutputs.append(forwardOutput.state)
+  		timeStepOutputs.append(forwardOutput.state.hidden)
 		}	
 		return timeStepOutputs
   }
-  
-	@differentiable(wrt: (self, inputs))
-  public func lastOutput(
-		from inputs: [LSTMCell<Float>.TimeStepInput]
-  ) -> LSTMCell<Float>.TimeStepOutput {
-	precondition(!inputs.isEmpty, "'inputs' must be non-empty.")
-		let outputs = self(inputs)		
-		let ret = outputs[withoutDerivative(at: inputs.count - 1)]
-	return ret
-  }
- 
 }

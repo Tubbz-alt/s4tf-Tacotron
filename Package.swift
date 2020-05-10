@@ -19,14 +19,12 @@ import PackageDescription
 let package = Package(
 	name: "Tacotron",
 	products: [
-        .library(name: "Tacotron", targets: ["Tacotron"]),
-    ],
-    dependencies: [],
-    targets: [
-        .target(
-            name: "Model",
-            dependencies: []]),
-        .testTarget(
-            name: "ModelTests",
-            dependencies: []),
-    ]
+		.library(name: "Tacotron",
+  	targets: ["Tacotron"]),
+  ],
+  targets: [
+  	.target(
+		  name: "Tacotron",
+  	  dependencies: []),
+  ]
+)
